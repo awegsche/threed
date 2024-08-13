@@ -1,0 +1,7 @@
+.cache
+.vs
+.vscode
+builds
+*.nbt
+*.ps1
+compile_commands.json
