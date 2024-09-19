@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <assimp/vector3.h>
 #include <format>
 #include <vector>
 
@@ -17,10 +18,11 @@ int main(int argc, char **argv)
     CLI::App    app("Three D");
     std::string outfile;
     std::string modelfile;
-    bool        gui         = false;
+    bool        swap_yz = false;
 
     CLI::Option *model_opt   = app.add_option("-m,--model,model", modelfile, "3D model to load");
     CLI::Option *outfile_opt = app.add_option("-o,--outfile,outfile", outfile, "Path to output file");
+    CLI::Option *swap_yz_opt = app.add_flag("--swap_yz", swap_yz, "Swaps Y and Z coordinates");
 
     CLI11_PARSE(app, argc, argv);
 
@@ -33,7 +35,8 @@ int main(int argc, char **argv)
     spdlog::info("Input model: {}", modelfile);
 
     Assimp::Importer importer;
-    unsigned int     pFlags = aiProcess_GenNormals | aiProcess_Triangulate; // | aiProcess_CalcTangentSpace;
+    // unsigned int     pFlags = aiProcess_GenNormals | aiProcess_Triangulate; // | aiProcess_CalcTangentSpace;
+    unsigned int pFlags = 0;
 
     const aiScene *scene = importer.ReadFile(modelfile.c_str(), pFlags);
 
@@ -48,6 +51,7 @@ int main(int argc, char **argv)
         const auto *mesh = scene->mMeshes[imesh];
         spdlog::info("mesh {}:", imesh);
         spdlog::info("{} vertices", imesh, mesh->mNumVertices);
+        if (mesh->HasNormals()) { spdlog::info("has normals"); }
     }
 
 
@@ -66,6 +70,17 @@ int main(int argc, char **argv)
             vec.push_back(i >> 24 & 0xFF);
         };
 
+        const auto push_float3 = [push_float](std::vector<uint8_t> &vec, aiVector3D const& v, bool swap_yz_coords = false) {
+            push_float(vec, v.x);
+            if (swap_yz_coords) {
+                push_float(vec, v.z);
+                push_float(vec, v.y);
+            } else {
+                push_float(vec, v.y);
+                push_float(vec, v.z);
+            }
+        };
+
         spdlog::info("{} meshes", scene->mNumMeshes);
         for (unsigned int imesh = 0; imesh < scene->mNumMeshes; ++imesh) {
 
@@ -78,14 +93,10 @@ int main(int argc, char **argv)
             vertices.reserve(static_cast<size_t>(mesh->mNumVertices) * 3 * sizeof(float));
 
             for (unsigned int ivertex = 0; ivertex < mesh->mNumVertices; ++ivertex) {
-                push_float(vertices, mesh->mVertices[ivertex].x);
-                push_float(vertices, mesh->mVertices[ivertex].y);
-                push_float(vertices, mesh->mVertices[ivertex].z);
-
-                push_float(normals, mesh->mNormals[ivertex].x);
-                push_float(normals, mesh->mNormals[ivertex].y);
-                push_float(normals, mesh->mNormals[ivertex].z);
+                push_float3(vertices, mesh->mVertices[ivertex], swap_yz);
+                push_float3(normals, mesh->mNormals[ivertex], swap_yz);
             }
+
             nbt_mesh.insert_node(vertices, "vertices");
             nbt_mesh.insert_node(normals, "normals");
             root.insert_node(nbt_mesh, std::format("mesh {}", imesh));
