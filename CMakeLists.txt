@@ -49,8 +49,8 @@ add_executable(threed
 
 target_link_libraries(threed
     raylib
-  spdlog::spdlog
-  assimp::assimp
-  CLI11::CLI11
-  nbtlib
+    spdlog::spdlog
+    assimp::assimp
+    CLI11::CLI11
+    nbtlib
     )
